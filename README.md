@@ -1,49 +1,158 @@
-## About Laravel Movie DB
+# Movie Application
 
-Ini adalah sistem database movie menggunakan laravel untuk mata kuliah Konstruksi dan Evolusi Perangkat Lunak Prodi Teknologi Rekayasa Perangkat Lunak Jurusan Teknologi Informasi Politeknik Negeri Padang.
+A Laravel-based web application for managing movie information.
 
-Silahkan clone repository ini ke PC Anda.
-Jika Anda baru saja meng-clone repository proyek Laravel dan ingin menjalankan perintah migrasi, ada beberapa langkah yang perlu Anda lakukan terlebih dahulu. Berikut adalah langkah-langkahnya:
+## Overview
 
-1. **Composer Install:**
-   Pastikan Anda telah menginstal Composer di sistem Anda. Kemudian, jalankan perintah berikut di terminal di direktori proyek Laravel Anda untuk menginstal dependensi:
+This application allows users to browse, add, edit, and delete movie information. It includes features like categorization, detailed movie information, and image uploads for movie posters.
 
-    composer install
+## Features
 
-2. **Environment File:**
-   Duplikat file `.env.example` menjadi `.env` di direktori proyek Anda. Sesuaikan pengaturan database dan konfigurasi lainnya di file `.env` sesuai dengan kebutuhan Anda.
+- Browse movies with pagination
+- View detailed movie information
+- Add new movies with image uploads
+- Edit existing movie information
+- Delete movies
+- Categorize movies
 
-    cp .env.example .env
+## Refactoring Documentation
 
-3. **Generate Application Key:**
-   Laravel menggunakan kunci aplikasi untuk enkripsi data. Jalankan perintah berikut untuk menghasilkan kunci aplikasi:
+### Refactoring Areas
 
-    php artisan key:generate
+#### 1. Standardized Route Usage
 
-4. **Set Database Connection:**
-   Pastikan bahwa pengaturan koneksi database di file `.env` sesuai dengan konfigurasi database Anda.
+**Problem:** Inconsistent route definition across views.
+- Some views used hardcoded URLs: `<a href="/movie/{{ $movie['id'] }}">`
+- Others used named routes: `route('movies.update', ['movie' => $movie->id])`
 
-   Contoh: Jika Anda membuat database dbmovie, maka di file `.env` ubahlah `DB_DATABASE=laravel` menjadi `DB_DATABASE=dbmovie`
+**Solution:** Standardized to named routes where possible and updated the routes file to include proper route names.
 
-6. **Run Migrations:**
-   Sekarang Anda dapat menjalankan perintah migrasi untuk membuat tabel-tabel database:
+```php
+// Before
+<a href="/">Kembali</a>
+<a href="/movie/{{ $movie['id'] }}">Lihat Selanjutnya</a>
+<form action="/movies/store" method="POST">
 
-    php artisan migrate
+// After
+<a href="{{ route('homepage') }}">Kembali</a>
+<a href="{{ route('movies.show', $movie->id) }}">Lihat Selanjutnya</a>
+<form action="{{ route('movies.store') }}" method="POST">
+```
 
-    Perintah ini akan mengeksekusi semua migrasi yang terkandung di proyek Laravel ini.
+#### 2. Standardized Data Access Patterns
 
-7. **Run Seeds (Opsional):**
-   Proyek ini menggunakan _seeding_ untuk mengisi basis data awal, jalankan perintah berikut:
+**Problem:** Inconsistent data access syntax.
+- Some files used array syntax: `$movie['judul']`
+- Others used object syntax: `$movie->category->nama_kategori`
 
-    php artisan db:seed
+**Solution:** Standardized to object notation for model data.
 
-    Perintah ini akan menjalankan seeder yang telah didefinisikan.
+```php
+// Before
+<h2 class="card-title">{{ $movie['judul'] }}</h2>
+<p class="card-text">{{ $movie['sinopsis'] }}</p>
 
-8. **Serve Aplikasi:**
-   Setelah langkah-langkah di atas selesai, Anda dapat menjalankan server pengembangan Laravel untuk melihat proyek Anda:
+// After
+<h2 class="card-title">{{ $movie->judul }}</h2>
+<p class="card-text">{{ $movie->sinopsis }}</p>
+```
 
-    php artisan serve
+#### 3. Extracted Duplicate HTML Structure
 
-    Aplikasi akan berjalan di http://localhost:8000 secara default.
+**Problem:** Card layout was repeated across multiple views.
 
-_Credit by: Yori Adi Atma_
+**Solution:** Extracted common card layouts into a partial view.
+
+```php
+// New file: resources/views/partials/movie-card.blade.php
+<div class="card mb-3" style="max-width: 540px;">
+    <div class="row g-0">
+        <div class="col-md-4">
+            <img src="{{ asset('images/' . $movie->foto_sampul) }}" class="img-fluid rounded-start" alt="{{ $movie->judul }}">
+        </div>
+        <div class="col-md-8">
+            <div class="card-body">
+                <h5 class="card-title">{{ $movie->judul }}</h5>
+                <p class="card-text">{{ $movie->sinopsis }}</p>
+                <a href="/movie/{{ $movie->id }}" class="btn btn-success">Lihat Selanjutnya</a>
+            </div>
+        </div>
+    </div>
+</div>
+
+// Usage in homepage.blade.php
+@foreach ($movies as $movie)
+    <div class="col-lg-6">
+        @include('partials.movie-card', ['movie' => $movie])
+    </div>
+@endforeach
+```
+
+#### 4. Added Validation Error Display
+
+**Problem:** Input forms didn't display validation errors.
+
+**Solution:** Added error handling for form fields.
+
+```php
+// Before
+<input type="text" class="form-control" id="judul" name="judul" required="">
+
+// After
+<input type="text" class="form-control @error('judul') is-invalid @enderror" id="judul" name="judul" value="{{ old('judul') }}" required>
+@error('judul')
+    <div class="invalid-feedback">{{ $message }}</div>
+@enderror
+```
+
+#### 5. Used Asset Helper for Paths
+
+**Problem:** Hardcoded paths for images.
+
+**Solution:** Used asset() helper for public assets.
+
+```php
+// Before
+<img src="/images/{{ $movie['foto_sampul'] }}" class="img-fluid rounded-start" alt="...">
+
+// After
+<img src="{{ asset('images/' . $movie->foto_sampul) }}" class="img-fluid rounded-start" alt="{{ $movie->judul }}">
+```
+
+### Benefits of Refactoring
+
+1. **Improved Maintainability**: Consistent patterns make code easier to understand and maintain
+2. **Better User Experience**: Added validation feedback helps users correct form errors
+3. **Enhanced Reusability**: Extracted components reduce code duplication
+4. **Improved Robustness**: Asset helpers ensure correct path resolution in different environments
+5. **Better Code Organization**: Standardized approaches make the codebase more cohesive
+
+### Routes Update
+
+The routes file was updated to include named routes for all endpoints:
+
+```php
+Route::get('/', [MovieController::class, 'index'])->name('homepage');
+Route::get('/movie/{id}', [MovieController::class, 'detail'])->name('movies.show');
+Route::get('/movies/create', [MovieController::class, 'create'])->name('movies.create');
+Route::post('/movies/store', [MovieController::class, 'store'])->name('movies.store');
+Route::get('/movies/data', [MovieController::class, 'data'])->name('movies.index');
+Route::get('/movies/edit/{id}', [MovieController::class, 'form_edit'])->name('movies.edit');
+Route::post('movies/{movie}/update', [MovieController::class, 'update'])->name('movies.update');
+Route::get('movies/delete/{id}', [MovieController::class, 'delete'])->name('movies.delete');
+```
+
+## Installation
+
+1. Clone the repository
+2. Run `composer install`
+3. Copy `.env.example` to `.env` and configure your database
+4. Run `php artisan key:generate`
+5. Run `php artisan migrate --seed`
+6. Run `php artisan serve`
+
+## Requirements
+
+- PHP 8.0+
+- Laravel 9.0+
+- MySQL 5.7+ or equivalent
